@@ -6,7 +6,7 @@ use crate::runtime::task::{
     self, JoinHandle, OwnedTasks, Schedule, Task, TaskHarnessScheduleHooks,
 };
 use crate::runtime::{
-    blocking, context, Config, MetricsBatch, SchedulerMetrics, TaskHooks, TaskMeta, WorkerMetrics,
+    blocking, context, Config, MetricsBatch, SchedulerMetrics, TaskHooks, TaskContext, WorkerMetrics,
 };
 use crate::sync::notify::Notify;
 use crate::util::atomic_cell::AtomicCell;
@@ -456,7 +456,7 @@ impl Handle {
     {
         let (handle, notified) = me.shared.owned.bind(future, me.clone(), id);
 
-        me.task_hooks.spawn(&TaskMeta {
+        me.task_hooks.spawn(&TaskContext {
             id,
             _phantom: Default::default(),
         });
@@ -485,7 +485,7 @@ impl Handle {
     {
         let (handle, notified) = me.shared.owned.bind_local(future, me.clone(), id);
 
-        me.task_hooks.spawn(&TaskMeta {
+        me.task_hooks.spawn(&TaskContext {
             id,
             _phantom: Default::default(),
         });

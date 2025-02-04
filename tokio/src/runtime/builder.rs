@@ -3,7 +3,7 @@
 use crate::runtime::handle::Handle;
 use crate::runtime::{blocking, driver, Callback, HistogramBuilder, Runtime, TaskCallback};
 #[cfg(tokio_unstable)]
-use crate::runtime::{metrics::HistogramConfiguration, LocalOptions, LocalRuntime, TaskMeta};
+use crate::runtime::{metrics::HistogramConfiguration, LocalOptions, LocalRuntime, TaskContext};
 use crate::util::rand::{RngSeed, RngSeedGenerator};
 
 use crate::runtime::blocking::BlockingPool;
@@ -750,7 +750,7 @@ impl Builder {
     #[cfg_attr(docsrs, doc(cfg(tokio_unstable)))]
     pub fn on_task_spawn<F>(&mut self, f: F) -> &mut Self
     where
-        F: Fn(&TaskMeta<'_>) + Send + Sync + 'static,
+        F: Fn(&TaskContext<'_>) + Send + Sync + 'static,
     {
         self.before_spawn = Some(std::sync::Arc::new(f));
         self
@@ -793,7 +793,7 @@ impl Builder {
     #[cfg(tokio_unstable)]
     pub fn on_before_task_poll<F>(&mut self, f: F) -> &mut Self
     where
-        F: Fn(&TaskMeta<'_>) + Send + Sync + 'static,
+        F: Fn(&TaskContext<'_>) + Send + Sync + 'static,
     {
         self.before_poll = Some(std::sync::Arc::new(f));
         self
@@ -836,7 +836,7 @@ impl Builder {
     #[cfg(tokio_unstable)]
     pub fn on_after_task_poll<F>(&mut self, f: F) -> &mut Self
     where
-        F: Fn(&TaskMeta<'_>) + Send + Sync + 'static,
+        F: Fn(&TaskContext<'_>) + Send + Sync + 'static,
     {
         self.after_poll = Some(std::sync::Arc::new(f));
         self
@@ -885,7 +885,7 @@ impl Builder {
     #[cfg_attr(docsrs, doc(cfg(tokio_unstable)))]
     pub fn on_task_terminate<F>(&mut self, f: F) -> &mut Self
     where
-        F: Fn(&TaskMeta<'_>) + Send + Sync + 'static,
+        F: Fn(&TaskContext<'_>) + Send + Sync + 'static,
     {
         self.after_termination = Some(std::sync::Arc::new(f));
         self

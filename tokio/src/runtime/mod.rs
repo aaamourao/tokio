@@ -385,10 +385,10 @@ cfg_rt! {
     mod task_hooks;
     pub(crate) use task_hooks::{TaskHooks, TaskCallback};
     cfg_unstable! {
-        pub use task_hooks::TaskMeta;
+        pub use task_hooks::TaskContext;
     }
     #[cfg(not(tokio_unstable))]
-    pub(crate) use task_hooks::TaskMeta;
+    pub(crate) use task_hooks::TaskContext;
 
     mod handle;
     pub use handle::{EnterGuard, Handle, TryCurrentError};

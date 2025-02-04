@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use super::Config;
 
 impl TaskHooks {
-    pub(crate) fn spawn(&self, meta: &TaskMeta<'_>) {
+    pub(crate) fn spawn(&self, meta: &TaskContext<'_>) {
         if let Some(f) = self.task_spawn_callback.as_ref() {
             f(meta)
         }
@@ -25,7 +25,7 @@ impl TaskHooks {
     #[inline]
     pub(crate) fn poll_start_callback(&self, id: super::task::Id) {
         if let Some(poll_start) = &self.before_poll_callback {
-            (poll_start)(&TaskMeta {
+            (poll_start)(&TaskContext {
                 id,
                 _phantom: std::marker::PhantomData,
             })
@@ -36,7 +36,7 @@ impl TaskHooks {
     #[inline]
     pub(crate) fn poll_stop_callback(&self, id: super::task::Id) {
         if let Some(poll_stop) = &self.after_poll_callback {
-            (poll_stop)(&TaskMeta {
+            (poll_stop)(&TaskContext {
                 id,
                 _phantom: std::marker::PhantomData,
             })
@@ -63,13 +63,13 @@ pub(crate) struct TaskHooks {
 /// [unstable]: crate#unstable-features
 #[allow(missing_debug_implementations)]
 #[cfg_attr(not(tokio_unstable), allow(unreachable_pub))]
-pub struct TaskMeta<'a> {
+pub struct TaskContext<'a> {
     /// The opaque ID of the task.
     pub(crate) id: super::task::Id,
     pub(crate) _phantom: PhantomData<&'a ()>,
 }
 
-impl<'a> TaskMeta<'a> {
+impl<'a> TaskContext<'a> {
     /// Return the opaque ID of the task.
     #[cfg_attr(not(tokio_unstable), allow(unreachable_pub, dead_code))]
     pub fn id(&self) -> super::task::Id {
@@ -78,4 +78,4 @@ impl<'a> TaskMeta<'a> {
 }
 
 /// Runs on specific task-related events
-pub(crate) type TaskCallback = std::sync::Arc<dyn Fn(&TaskMeta<'_>) + Send + Sync>;
+pub(crate) type TaskCallback = std::sync::Arc<dyn Fn(&TaskContext<'_>) + Send + Sync>;
