@@ -3,11 +3,32 @@ use std::any::Any;
 use std::sync::Arc;
 
 #[derive(Clone)]
-pub(crate) struct TaskHooks<U> {;
+pub(crate) struct TaskHooks<U> {
     pub(crate) task_spawn_callback: Option<OnTaskSpawnCallback<U>>,
     pub(crate) task_terminate_callback: Option<OnTaskTerminateCallback<U>>,
     pub(crate) before_poll_callback: Option<BeforeTaskPollCallback<U>>,
     pub(crate) after_poll_callback: Option<AfterTaskPollCallback<U>>,
+}
+
+macro_rules! gen_task_context_methods {
+    ($structname: ident) => {
+        impl<U> $structname<U> {
+            pub fn id(&self) -> super::task::Id {
+                self.task.id()
+            }
+
+            pub fn name(&self) -> Option<&str> {
+                self.task.name()
+            }
+
+            /// Returns a reference to optional user provided data stored in the context.
+            ///
+            /// This can be added either via a builder method or via a spawn hook.
+            pub fn user_data(&mut self) -> Option<&mut U> {
+                self.task.user_data()
+            }
+        }
+    };
 }
 
 /// Task metadata supplied to user-provided hooks for task events.
@@ -50,6 +71,11 @@ pub struct BeforeTaskPollContext<'a, U> {
 pub struct AfterTaskPollContext<'a, U> {
     pub(crate) task: TaskContext<'a, U>,
 }
+
+gen_task_context_methods!(OnTaskSpawnContext);
+gen_task_context_methods!(OnTaskTerminateContext);
+gen_task_context_methods!(BeforeTaskPollContext);
+gen_task_context_methods!(AfterTaskPollContext);
 
 pub(crate) type OnTaskSpawnCallback<U> = Arc<dyn Fn(&mut OnTaskSpawnContext<'_, U>) + Send + Sync>;
 pub(crate) type OnTaskTerminateCallback<U> =
@@ -94,5 +120,19 @@ impl<U> TaskHooks<U> {
     #[inline]
     pub(crate) fn poll_stop_callback(&self, id: super::task::Id) {
         todo!()
+    }
+}
+
+impl<'a, U> TaskContext<'a, U> {
+    fn id(&self) -> super::task::Id {
+        self.id
+    }
+
+    fn name(&self) -> Option<&str> {
+        self.name
+    }
+
+    fn user_data(&mut self) -> Option<&mut U> {
+        self.user_data.as_mut()
     }
 }
