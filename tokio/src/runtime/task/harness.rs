@@ -4,7 +4,6 @@ use crate::runtime::task::state::{Snapshot, State};
 use crate::runtime::task::waker::waker_ref;
 use crate::runtime::task::{Id, JoinError, Notified, RawTask, Schedule, Task};
 
-use crate::runtime::TaskContext;
 use std::any::Any;
 use std::mem;
 use std::mem::ManuallyDrop;

@@ -2,6 +2,8 @@ use super::Config;
 use std::any::Any;
 use std::sync::Arc;
 
+
+
 #[derive(Clone)]
 pub(crate) struct TaskHooks<U> {
     pub(crate) task_spawn_callback: Option<OnTaskSpawnCallback<U>>,
@@ -13,15 +15,17 @@ pub(crate) struct TaskHooks<U> {
 macro_rules! gen_task_context_methods {
     ($structname: ident) => {
         impl<U> $structname<U> {
+            /// Returns the opaque ID of the task.
             pub fn id(&self) -> super::task::Id {
                 self.task.id()
             }
 
+            /// Returns a reference to the name of the task, if the task was named.
             pub fn name(&self) -> Option<&str> {
                 self.task.name()
             }
 
-            /// Returns a reference to optional user provided data stored in the context.
+            /// Returns a mutable reference to optional user provided data stored in the context.
             ///
             /// This can be added either via a builder method or via a spawn hook.
             pub fn user_data(&mut self) -> Option<&mut U> {
@@ -51,7 +55,7 @@ pub(crate) struct TaskContext<'a, U> {
 #[cfg_attr(not(tokio_unstable), allow(unreachable_pub))]
 pub struct OnTaskSpawnContext<'a, U> {
     pub(crate) task: TaskContext<'a, U>,
-    pub(crate) child_user_data: &'a mut Option<U>,
+    pub(crate) child_user_data: &'a mut Option<Box<U>>,
 }
 
 #[allow(missing_debug_implementations)]
@@ -72,10 +76,22 @@ pub struct AfterTaskPollContext<'a, U> {
     pub(crate) task: TaskContext<'a, U>,
 }
 
+impl<'a, U> OnTaskSpawnContext<'a, U> {
+    pub fn child_user_data(&mut self) -> &'a mut Option<Box<U>> {
+        self.child_user_data
+    }
+}
+
 gen_task_context_methods!(OnTaskSpawnContext);
 gen_task_context_methods!(OnTaskTerminateContext);
 gen_task_context_methods!(BeforeTaskPollContext);
 gen_task_context_methods!(AfterTaskPollContext);
+
+impl<'a, U> OnTaskSpawnContext<U> {
+    pub fn child_user_data(&mut self) -> Option<&'a mut U> {
+        self.child_user_data.as_mut()
+    }
+}
 
 pub(crate) type OnTaskSpawnCallback<U> = Arc<dyn Fn(&mut OnTaskSpawnContext<'_, U>) + Send + Sync>;
 pub(crate) type OnTaskTerminateCallback<U> =
@@ -86,18 +102,6 @@ pub(crate) type AfterTaskPollCallback<U> =
     Arc<dyn Fn(&mut AfterTaskPollContext<'_, U>) + Send + Sync>;
 
 impl<U> TaskHooks<U> {
-    pub(crate) fn spawn(
-        &self,
-        id: super::task::Id,
-        name: Option<&str>,
-        user_data: Option<&mut (dyn Any + 'static)>,
-        child_user_data: &mut Option<U>,
-    ) {
-        if let Some(f) = self.task_spawn_callback.as_ref() {
-            f(meta)
-        }
-    }
-
     #[allow(dead_code)]
     pub(crate) fn from_config(config: &Config) -> Self {
         Self {
@@ -110,16 +114,73 @@ impl<U> TaskHooks<U> {
         }
     }
 
-    #[cfg(tokio_unstable)]
-    #[inline]
-    pub(crate) fn poll_start_callback(&self, id: super::task::Id) {
-        todo!()
+    pub(crate) fn dispatch_task_spawn_callback(
+        &self,
+        id: super::task::Id,
+        name: Option<&str>,
+        user_data: Option<&mut U>,
+        child_user_data: &mut Option<Box<U>>,
+    ) {
+        if let Some(f) = self.task_spawn_callback.as_ref() {
+            let mut ctx = OnTaskSpawnContext {
+                task: TaskContext {
+                    id,
+                    name,
+                    user_data,
+                },
+                child_user_data,
+            };
+
+            f(&mut ctx)
+        }
     }
 
     #[cfg(tokio_unstable)]
     #[inline]
-    pub(crate) fn poll_stop_callback(&self, id: super::task::Id) {
-        todo!()
+    pub(crate) fn dispatch_task_terminate_callback(&self, id: super::task::Id) {
+        if let Some(f) = self.task_terminate_callback.as_ref() {
+            let mut ctx = OnTaskTerminateContext {
+                task: TaskContext {
+                    id,
+                    name,
+                    user_data,
+                },
+            };
+
+            f(&mut ctx)
+        }
+    }
+
+    #[cfg(tokio_unstable)]
+    #[inline]
+    pub(crate) fn dispatch_pre_poll_callback(&self, id: super::task::Id) {
+        if let Some(f) = self.before_poll_callback.as_ref() {
+            let mut ctx = BeforeTaskPollContext {
+                task: TaskContext {
+                    id,
+                    name,
+                    user_data,
+                },
+            };
+
+            f(&mut ctx)
+        }
+    }
+
+    #[cfg(tokio_unstable)]
+    #[inline]
+    pub(crate) fn dispatch_post_poll_callback(&self, id: super::task::Id) {
+        if let Some(f) = self.after_poll_callback.as_ref() {
+            let mut ctx = AfterTaskPollContext {
+                task: TaskContext {
+                    id,
+                    name,
+                    user_data,
+                },
+            };
+
+            f(&mut ctx)
+        }
     }
 }
 

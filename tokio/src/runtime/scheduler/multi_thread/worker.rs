@@ -596,12 +596,12 @@ impl Context {
             // Unlike the poll time above, poll start callback is attached to the task id,
             // so it is tightly associated with the actual poll invocation.
             #[cfg(tokio_unstable)]
-            self.worker.handle.task_hooks.poll_start_callback(task_id);
+            self.worker.handle.task_hooks.dispatch_pre_poll_callback(task_id);
 
             task.run();
 
             #[cfg(tokio_unstable)]
-            self.worker.handle.task_hooks.poll_stop_callback(task_id);
+            self.worker.handle.task_hooks.dispatch_post_poll_callback(task_id);
 
             let mut lifo_polls = 0;
 
@@ -670,12 +670,12 @@ impl Context {
                 let task_id = task.task_id();
 
                 #[cfg(tokio_unstable)]
-                self.worker.handle.task_hooks.poll_start_callback(task_id);
+                self.worker.handle.task_hooks.dispatch_pre_poll_callback(task_id);
 
                 task.run();
 
                 #[cfg(tokio_unstable)]
-                self.worker.handle.task_hooks.poll_stop_callback(task_id);
+                self.worker.handle.task_hooks.dispatch_post_poll_callback(task_id);
             }
         })
     }

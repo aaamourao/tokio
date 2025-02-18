@@ -4,7 +4,7 @@ use crate::runtime::scheduler::multi_thread_alt::worker;
 use crate::runtime::{
     blocking, driver,
     task::{self, JoinHandle},
-    TaskContext, TaskHooks,
+    TaskHooks,
 };
 use crate::util::RngSeedGenerator;
 
@@ -54,7 +54,7 @@ impl Handle {
     {
         let (handle, notified) = me.shared.owned.bind(future, me.clone(), id);
 
-        me.task_hooks.spawn(&TaskContext {
+        me.task_hooks.dispatch_task_spawn_callback(&TaskContext {
             #[cfg(tokio_unstable)]
             id,
             _phantom: Default::default(),

@@ -385,7 +385,7 @@ cfg_rt! {
     mod task_hooks;
     pub(crate) use task_hooks::{TaskHooks, TaskCallback};
     cfg_unstable! {
-        pub use task_hooks::TaskContext;
+        pub use task_hooks::{OnTaskTerminateContext, OnTaskSpawnContext, BeforeTaskPollContext, AfterTaskPollContext};
     }
     #[cfg(not(tokio_unstable))]
     pub(crate) use task_hooks::TaskContext;

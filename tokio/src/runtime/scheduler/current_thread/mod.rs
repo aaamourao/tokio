@@ -6,7 +6,7 @@ use crate::runtime::task::{
     self, JoinHandle, OwnedTasks, Schedule, Task, TaskHarnessScheduleHooks,
 };
 use crate::runtime::{
-    blocking, context, Config, MetricsBatch, SchedulerMetrics, TaskHooks, TaskContext, WorkerMetrics,
+    blocking, context, Config, MetricsBatch, SchedulerMetrics, TaskHooks, WorkerMetrics,
 };
 use crate::sync::notify::Notify;
 use crate::util::atomic_cell::AtomicCell;
@@ -456,7 +456,7 @@ impl Handle {
     {
         let (handle, notified) = me.shared.owned.bind(future, me.clone(), id);
 
-        me.task_hooks.spawn(&TaskContext {
+        me.task_hooks.dispatch_task_spawn_callback(&TaskContext {
             id,
             _phantom: Default::default(),
         });
@@ -485,7 +485,7 @@ impl Handle {
     {
         let (handle, notified) = me.shared.owned.bind_local(future, me.clone(), id);
 
-        me.task_hooks.spawn(&TaskContext {
+        me.task_hooks.dispatch_task_spawn_callback(&TaskContext {
             id,
             _phantom: Default::default(),
         });
@@ -775,12 +775,12 @@ impl CoreGuard<'_> {
 
                     let (c, ()) = context.run_task(core, || {
                         #[cfg(tokio_unstable)]
-                        context.handle.task_hooks.poll_start_callback(task_id);
+                        context.handle.task_hooks.dispatch_pre_poll_callback(task_id);
 
                         task.run();
 
                         #[cfg(tokio_unstable)]
-                        context.handle.task_hooks.poll_stop_callback(task_id);
+                        context.handle.task_hooks.dispatch_post_poll_callback(task_id);
                     });
 
                     core = c;

@@ -1,13 +1,16 @@
 #![cfg_attr(loom, allow(unused_imports))]
 
 use crate::runtime::handle::Handle;
-use crate::runtime::{blocking, driver, Callback, HistogramBuilder, Runtime, TaskCallback};
+use crate::runtime::{blocking, driver, Callback, HistogramBuilder, Runtime};
 #[cfg(tokio_unstable)]
-use crate::runtime::{metrics::HistogramConfiguration, LocalOptions, LocalRuntime, TaskContext};
+use crate::runtime::{metrics::HistogramConfiguration, LocalOptions, LocalRuntime};
 use crate::util::rand::{RngSeed, RngSeedGenerator};
 
 use crate::runtime::blocking::BlockingPool;
 use crate::runtime::scheduler::CurrentThread;
+use crate::runtime::task_hooks::{
+    AfterTaskPollCallback, BeforeTaskPollCallback, OnTaskSpawnCallback, OnTaskTerminateCallback,
+};
 use std::fmt;
 use std::io;
 use std::thread::ThreadId;
@@ -85,20 +88,6 @@ pub struct Builder {
     /// To run after each thread is unparked.
     pub(super) after_unpark: Option<Callback>,
 
-    /// To run before each task is spawned.
-    pub(super) before_spawn: Option<TaskCallback>,
-
-    /// To run before each poll
-    #[cfg(tokio_unstable)]
-    pub(super) before_poll: Option<TaskCallback>,
-
-    /// To run after each poll
-    #[cfg(tokio_unstable)]
-    pub(super) after_poll: Option<TaskCallback>,
-
-    /// To run after each task is terminated.
-    pub(super) after_termination: Option<TaskCallback>,
-
     /// Customizable keep alive timeout for `BlockingPool`
     pub(super) keep_alive: Option<Duration>,
 
@@ -135,6 +124,22 @@ pub struct Builder {
 }
 
 cfg_unstable! {
+    pub struct TaskCallbacksBuilder<U> {
+        /// To run before each task is spawned.
+        pub(super) before_spawn: Option<OnTaskSpawnCallback<U>>,
+
+        /// To run before each poll
+        #[cfg(tokio_unstable)]
+        pub(super) before_poll: Option<BeforeTaskPollCallback<U>>,
+
+        /// To run after each poll
+        #[cfg(tokio_unstable)]
+        pub(super) after_poll: Option<AfterTaskPollCallback<U>>,
+
+        /// To run after each task is terminated.
+        pub(super) after_termination: Option<OnTaskTerminateCallback<U>>,
+    }
+
     /// How the runtime should respond to unhandled panics.
     ///
     /// Instances of `UnhandledPanic` are passed to `Builder::unhandled_panic`
