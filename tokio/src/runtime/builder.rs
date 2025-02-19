@@ -1,7 +1,9 @@
 #![cfg_attr(loom, allow(unused_imports))]
 
 use crate::runtime::handle::Handle;
-use crate::runtime::{blocking, driver, Callback, HistogramBuilder, Runtime};
+use crate::runtime::{
+    blocking, driver, Callback, HistogramBuilder, Runtime, TaskHookHarnessFactory,
+};
 #[cfg(tokio_unstable)]
 use crate::runtime::{metrics::HistogramConfiguration, LocalOptions, LocalRuntime};
 use crate::util::rand::{RngSeed, RngSeedGenerator};
@@ -10,6 +12,7 @@ use crate::runtime::blocking::BlockingPool;
 use crate::runtime::scheduler::CurrentThread;
 use std::fmt;
 use std::io;
+use std::sync::Arc;
 use std::thread::ThreadId;
 use std::time::Duration;
 
@@ -85,6 +88,10 @@ pub struct Builder {
     /// To run after each thread is unparked.
     pub(super) after_unpark: Option<Callback>,
 
+    #[cfg(tokio_unstable)]
+    pub(super) task_hook_harness_factory:
+        Option<Arc<dyn TaskHookHarnessFactory + Send + Sync + 'static>>,
+
     /// Customizable keep alive timeout for `BlockingPool`
     pub(super) keep_alive: Option<Duration>,
 
@@ -121,22 +128,6 @@ pub struct Builder {
 }
 
 cfg_unstable! {
-    pub struct TaskCallbacksBuilder<U> {
-        /// To run before each task is spawned.
-        pub(super) before_spawn: Option<OnTaskSpawnCallback<U>>,
-
-        /// To run before each poll
-        #[cfg(tokio_unstable)]
-        pub(super) before_poll: Option<BeforeTaskPollCallback<U>>,
-
-        /// To run after each poll
-        #[cfg(tokio_unstable)]
-        pub(super) after_poll: Option<AfterTaskPollCallback<U>>,
-
-        /// To run after each task is terminated.
-        pub(super) after_termination: Option<OnTaskTerminateCallback<U>>,
-    }
-
     /// How the runtime should respond to unhandled panics.
     ///
     /// Instances of `UnhandledPanic` are passed to `Builder::unhandled_panic`
@@ -313,13 +304,7 @@ impl Builder {
             before_park: None,
             after_unpark: None,
 
-            before_spawn: None,
-            after_termination: None,
-
-            #[cfg(tokio_unstable)]
-            before_poll: None,
-            #[cfg(tokio_unstable)]
-            after_poll: None,
+            task_hook_harness_factory: None,
 
             keep_alive: None,
 
@@ -708,188 +693,12 @@ impl Builder {
         self
     }
 
-    /// Executes function `f` just before a task is spawned.
-    ///
-    /// `f` is called within the Tokio context, so functions like
-    /// [`tokio::spawn`](crate::spawn) can be called, and may result in this callback being
-    /// invoked immediately.
-    ///
-    /// This can be used for bookkeeping or monitoring purposes.
-    ///
-    /// Note: There can only be one spawn callback for a runtime; calling this function more
-    /// than once replaces the last callback defined, rather than adding to it.
-    ///
-    /// This *does not* support [`LocalSet`](crate::task::LocalSet) at this time.
-    ///
-    /// **Note**: This is an [unstable API][unstable]. The public API of this type
-    /// may break in 1.x releases. See [the documentation on unstable
-    /// features][unstable] for details.
-    ///
-    /// [unstable]: crate#unstable-features
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use tokio::runtime;
-    /// # pub fn main() {
-    /// let runtime = runtime::Builder::new_current_thread()
-    ///     .on_task_spawn(|_| {
-    ///         println!("spawning task");
-    ///     })
-    ///     .build()
-    ///     .unwrap();
-    ///
-    /// runtime.block_on(async {
-    ///     tokio::task::spawn(std::future::ready(()));
-    ///
-    ///     for _ in 0..64 {
-    ///         tokio::task::yield_now().await;
-    ///     }
-    /// })
-    /// # }
-    /// ```
     #[cfg(all(not(loom), tokio_unstable))]
     #[cfg_attr(docsrs, doc(cfg(tokio_unstable)))]
-    pub fn on_task_spawn<F>(&mut self, f: F) -> &mut Self
+    pub fn on_task_spawn<T>(&mut self, hooks: T) -> &mut Self
     where
-        F: Fn(&TaskContext<'_>) + Send + Sync + 'static,
+        T: super::task_hooks::TaskHookHarnessFactory + Send + Sync + 'static,
     {
-        self.before_spawn = Some(std::sync::Arc::new(f));
-        self
-    }
-
-    /// Executes function `f` just before a task is polled
-    ///
-    /// `f` is called within the Tokio context, so functions like
-    /// [`tokio::spawn`](crate::spawn) can be called, and may result in this callback being
-    /// invoked immediately.
-    ///
-    /// **Note**: This is an [unstable API][unstable]. The public API of this type
-    /// may break in 1.x releases. See [the documentation on unstable
-    /// features][unstable] for details.
-    ///
-    /// [unstable]: crate#unstable-features
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use std::sync::{atomic::AtomicUsize, Arc};
-    /// # use tokio::task::yield_now;
-    /// # pub fn main() {
-    /// let poll_start_counter = Arc::new(AtomicUsize::new(0));
-    /// let poll_start = poll_start_counter.clone();
-    /// let rt = tokio::runtime::Builder::new_multi_thread()
-    ///     .enable_all()
-    ///     .on_before_task_poll(move |meta| {
-    ///         println!("task {} is about to be polled", meta.id())
-    ///     })
-    ///     .build()
-    ///     .unwrap();
-    /// let task = rt.spawn(async {
-    ///     yield_now().await;
-    /// });
-    /// let _ = rt.block_on(task);
-    ///
-    /// # }
-    /// ```
-    #[cfg(tokio_unstable)]
-    pub fn on_before_task_poll<F>(&mut self, f: F) -> &mut Self
-    where
-        F: Fn(&TaskContext<'_>) + Send + Sync + 'static,
-    {
-        self.before_poll = Some(std::sync::Arc::new(f));
-        self
-    }
-
-    /// Executes function `f` just after a task is polled
-    ///
-    /// `f` is called within the Tokio context, so functions like
-    /// [`tokio::spawn`](crate::spawn) can be called, and may result in this callback being
-    /// invoked immediately.
-    ///
-    /// **Note**: This is an [unstable API][unstable]. The public API of this type
-    /// may break in 1.x releases. See [the documentation on unstable
-    /// features][unstable] for details.
-    ///
-    /// [unstable]: crate#unstable-features
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use std::sync::{atomic::AtomicUsize, Arc};
-    /// # use tokio::task::yield_now;
-    /// # pub fn main() {
-    /// let poll_stop_counter = Arc::new(AtomicUsize::new(0));
-    /// let poll_stop = poll_stop_counter.clone();
-    /// let rt = tokio::runtime::Builder::new_multi_thread()
-    ///     .enable_all()
-    ///     .on_after_task_poll(move |meta| {
-    ///         println!("task {} completed polling", meta.id());
-    ///     })
-    ///     .build()
-    ///     .unwrap();
-    /// let task = rt.spawn(async {
-    ///     yield_now().await;
-    /// });
-    /// let _ = rt.block_on(task);
-    ///
-    /// # }
-    /// ```
-    #[cfg(tokio_unstable)]
-    pub fn on_after_task_poll<F>(&mut self, f: F) -> &mut Self
-    where
-        F: Fn(&TaskContext<'_>) + Send + Sync + 'static,
-    {
-        self.after_poll = Some(std::sync::Arc::new(f));
-        self
-    }
-
-    /// Executes function `f` just after a task is terminated.
-    ///
-    /// `f` is called within the Tokio context, so functions like
-    /// [`tokio::spawn`](crate::spawn) can be called.
-    ///
-    /// This can be used for bookkeeping or monitoring purposes.
-    ///
-    /// Note: There can only be one task termination callback for a runtime; calling this
-    /// function more than once replaces the last callback defined, rather than adding to it.
-    ///
-    /// This *does not* support [`LocalSet`](crate::task::LocalSet) at this time.
-    ///
-    /// **Note**: This is an [unstable API][unstable]. The public API of this type
-    /// may break in 1.x releases. See [the documentation on unstable
-    /// features][unstable] for details.
-    ///
-    /// [unstable]: crate#unstable-features
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use tokio::runtime;
-    /// # pub fn main() {
-    /// let runtime = runtime::Builder::new_current_thread()
-    ///     .on_task_terminate(|_| {
-    ///         println!("killing task");
-    ///     })
-    ///     .build()
-    ///     .unwrap();
-    ///
-    /// runtime.block_on(async {
-    ///     tokio::task::spawn(std::future::ready(()));
-    ///
-    ///     for _ in 0..64 {
-    ///         tokio::task::yield_now().await;
-    ///     }
-    /// })
-    /// # }
-    /// ```
-    #[cfg(all(not(loom), tokio_unstable))]
-    #[cfg_attr(docsrs, doc(cfg(tokio_unstable)))]
-    pub fn on_task_terminate<F>(&mut self, f: F) -> &mut Self
-    where
-        F: Fn(&TaskContext<'_>) + Send + Sync + 'static,
-    {
-        self.after_termination = Some(std::sync::Arc::new(f));
         self
     }
 

@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 /// A factory which produces new [`TaskHookHarness`] objects for tasks which either have been
 /// spawned in "detached mode" via the builder, or which were spawned from outside the runtime or
 /// from another context where no [`TaskHookHarness`] was present.
-pub trait TaskHooksFactory {
+pub trait TaskHookHarnessFactory {
     /// Create a new [`TaskHookHarness`] object which the runtime will attach to a given task.
     fn on_top_level_spawn(
         &self,
