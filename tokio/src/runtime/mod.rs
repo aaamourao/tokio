@@ -382,13 +382,10 @@ cfg_rt! {
         pub use dump::Dump;
     }
 
-    mod task_hooks;
-    pub(crate) use task_hooks::{TaskHooks, TaskCallback};
     cfg_unstable! {
-        pub use task_hooks::{OnTaskTerminateContext, OnTaskSpawnContext, BeforeTaskPollContext, AfterTaskPollContext};
+        mod task_hooks;
+        pub use task_hooks::*;
     }
-    #[cfg(not(tokio_unstable))]
-    pub(crate) use task_hooks::TaskContext;
 
     mod handle;
     pub use handle::{EnterGuard, Handle, TryCurrentError};

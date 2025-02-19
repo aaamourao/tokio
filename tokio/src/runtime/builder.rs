@@ -8,9 +8,6 @@ use crate::util::rand::{RngSeed, RngSeedGenerator};
 
 use crate::runtime::blocking::BlockingPool;
 use crate::runtime::scheduler::CurrentThread;
-use crate::runtime::task_hooks::{
-    AfterTaskPollCallback, BeforeTaskPollCallback, OnTaskSpawnCallback, OnTaskTerminateCallback,
-};
 use std::fmt;
 use std::io;
 use std::thread::ThreadId;

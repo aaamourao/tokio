@@ -6,7 +6,7 @@ use crate::runtime::task::{
     self, JoinHandle, OwnedTasks, Schedule, Task, TaskHarnessScheduleHooks,
 };
 use crate::runtime::{
-    blocking, context, Config, MetricsBatch, SchedulerMetrics, TaskHooks, WorkerMetrics,
+    blocking, context, Config, MetricsBatch, SchedulerMetrics, TaskHookHarness, WorkerMetrics,
 };
 use crate::sync::notify::Notify;
 use crate::util::atomic_cell::AtomicCell;
@@ -47,7 +47,7 @@ pub(crate) struct Handle {
     pub(crate) seed_generator: RngSeedGenerator,
 
     /// User-supplied hooks to invoke for things
-    pub(crate) task_hooks: TaskHooks,
+    pub(crate) task_hooks: TaskHookHarness,
 
     /// If this is a `LocalRuntime`, flags the owning thread ID.
     pub(crate) local_tid: Option<ThreadId>,
@@ -142,7 +142,7 @@ impl CurrentThread {
             .unwrap_or(DEFAULT_GLOBAL_QUEUE_INTERVAL);
 
         let handle = Arc::new(Handle {
-            task_hooks: TaskHooks {
+            task_hooks: TaskHookHarness {
                 task_spawn_callback: config.before_spawn.clone(),
                 task_terminate_callback: config.after_termination.clone(),
                 #[cfg(tokio_unstable)]
@@ -775,12 +775,18 @@ impl CoreGuard<'_> {
 
                     let (c, ()) = context.run_task(core, || {
                         #[cfg(tokio_unstable)]
-                        context.handle.task_hooks.dispatch_pre_poll_callback(task_id);
+                        context
+                            .handle
+                            .task_hooks
+                            .dispatch_pre_poll_callback(task_id);
 
                         task.run();
 
                         #[cfg(tokio_unstable)]
-                        context.handle.task_hooks.dispatch_post_poll_callback(task_id);
+                        context
+                            .handle
+                            .task_hooks
+                            .dispatch_post_poll_callback(task_id);
                     });
 
                     core = c;

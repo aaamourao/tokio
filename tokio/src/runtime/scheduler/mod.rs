@@ -8,7 +8,7 @@ cfg_rt! {
     pub(crate) mod inject;
     pub(crate) use inject::Inject;
 
-    use crate::runtime::TaskHooks;
+    use crate::runtime::TaskHookHarness;
 }
 
 cfg_rt_multi_thread! {
@@ -196,7 +196,7 @@ cfg_rt! {
             }
         }
 
-        pub(crate) fn hooks(&self) -> &TaskHooks {
+        pub(crate) fn hooks(&self) -> &TaskHookHarness {
             match self {
                 Handle::CurrentThread(h) => &h.task_hooks,
                 #[cfg(feature = "rt-multi-thread")]

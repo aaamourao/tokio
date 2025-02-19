@@ -4,7 +4,7 @@ use crate::runtime::scheduler::multi_thread_alt::worker;
 use crate::runtime::{
     blocking, driver,
     task::{self, JoinHandle},
-    TaskHooks,
+    TaskHookHarness,
 };
 use crate::util::RngSeedGenerator;
 
@@ -29,7 +29,7 @@ pub(crate) struct Handle {
     pub(crate) seed_generator: RngSeedGenerator,
 
     /// User-supplied hooks to invoke for things
-    pub(crate) task_hooks: TaskHooks,
+    pub(crate) task_hooks: TaskHookHarness,
 }
 
 impl Handle {

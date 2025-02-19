@@ -224,7 +224,6 @@ use crate::future::Future;
 use crate::util::linked_list;
 use crate::util::sharded_list;
 
-use crate::runtime::TaskCallback;
 use std::marker::PhantomData;
 use std::ptr::NonNull;
 use std::{fmt, mem};

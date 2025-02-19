@@ -66,7 +66,7 @@ use crate::runtime::task::{OwnedTasks, TaskHarnessScheduleHooks};
 use crate::runtime::{
     blocking, coop, driver, scheduler, task, Config, SchedulerMetrics, WorkerMetrics,
 };
-use crate::runtime::{context, TaskHooks};
+use crate::runtime::{context, TaskHookHarness};
 use crate::util::atomic_cell::AtomicCell;
 use crate::util::rand::{FastRand, RngSeedGenerator};
 
@@ -282,7 +282,7 @@ pub(super) fn create(
 
     let remotes_len = remotes.len();
     let handle = Arc::new(Handle {
-        task_hooks: TaskHooks::from_config(&config),
+        task_hooks: TaskHookHarness::from_config(&config),
         shared: Shared {
             remotes: remotes.into_boxed_slice(),
             inject,
@@ -596,12 +596,18 @@ impl Context {
             // Unlike the poll time above, poll start callback is attached to the task id,
             // so it is tightly associated with the actual poll invocation.
             #[cfg(tokio_unstable)]
-            self.worker.handle.task_hooks.dispatch_pre_poll_callback(task_id);
+            self.worker
+                .handle
+                .task_hooks
+                .dispatch_pre_poll_callback(task_id);
 
             task.run();
 
             #[cfg(tokio_unstable)]
-            self.worker.handle.task_hooks.dispatch_post_poll_callback(task_id);
+            self.worker
+                .handle
+                .task_hooks
+                .dispatch_post_poll_callback(task_id);
 
             let mut lifo_polls = 0;
 
@@ -670,12 +676,18 @@ impl Context {
                 let task_id = task.task_id();
 
                 #[cfg(tokio_unstable)]
-                self.worker.handle.task_hooks.dispatch_pre_poll_callback(task_id);
+                self.worker
+                    .handle
+                    .task_hooks
+                    .dispatch_pre_poll_callback(task_id);
 
                 task.run();
 
                 #[cfg(tokio_unstable)]
-                self.worker.handle.task_hooks.dispatch_post_poll_callback(task_id);
+                self.worker
+                    .handle
+                    .task_hooks
+                    .dispatch_post_poll_callback(task_id);
             }
         })
     }
