@@ -8,7 +8,7 @@ cfg_rt! {
     pub(crate) mod inject;
     pub(crate) use inject::Inject;
 
-    use crate::runtime::TaskHookHarness;
+    use crate::runtime::TaskHookHarnessFactory;
 }
 
 cfg_rt_multi_thread! {
@@ -27,7 +27,7 @@ cfg_rt_multi_thread! {
     }
 }
 
-use crate::runtime::driver;
+use crate::runtime::{driver};
 
 #[derive(Debug, Clone)]
 pub(crate) enum Handle {
@@ -196,13 +196,13 @@ cfg_rt! {
             }
         }
 
-        pub(crate) fn hooks(&self) -> &TaskHookHarness {
+        pub(crate) fn hooks(&self) -> Option<&Arc<dyn TaskHookHarnessFactory + Send + Sync + 'static>> {
             match self {
-                Handle::CurrentThread(h) => &h.task_hooks,
+                Handle::CurrentThread(h) => h.task_hooks.as_ref(),
                 #[cfg(feature = "rt-multi-thread")]
-                Handle::MultiThread(h) => &h.task_hooks,
+                Handle::MultiThread(h) => h.task_hooks.as_ref(),
                 #[cfg(all(tokio_unstable, feature = "rt-multi-thread"))]
-                Handle::MultiThreadAlt(h) => &h.task_hooks,
+                Handle::MultiThreadAlt(h) => h.task_hooks.as_ref(),
             }
         }
 

@@ -62,10 +62,8 @@ use crate::runtime::scheduler::multi_thread::{
     idle, queue, Counters, Handle, Idle, Overflow, Parker, Stats, TraceStatus, Unparker,
 };
 use crate::runtime::scheduler::{inject, Defer, Lock};
-use crate::runtime::task::{OwnedTasks, TaskHarnessScheduleHooks};
-use crate::runtime::{
-    blocking, coop, driver, scheduler, task, Config, SchedulerMetrics, WorkerMetrics,
-};
+use crate::runtime::task::OwnedTasks;
+use crate::runtime::{blocking, coop, driver, scheduler, task, Config, SchedulerMetrics, TaskHookHarnessFactory, WorkerMetrics};
 use crate::runtime::{context, TaskHookHarness};
 use crate::util::atomic_cell::AtomicCell;
 use crate::util::rand::{FastRand, RngSeedGenerator};
@@ -1070,10 +1068,8 @@ impl task::Schedule for Arc<Handle> {
         self.schedule_task(task, false);
     }
 
-    fn hooks(&self) -> TaskHarnessScheduleHooks {
-        TaskHarnessScheduleHooks {
-            task_terminate_callback: self.task_hooks.task_terminate_callback.clone(),
-        }
+    fn hooks(&self) -> Option<&Arc<dyn TaskHookHarnessFactory + Send + Sync + 'static>> {
+        self.task_hooks.as_ref()
     }
 
     fn yield_now(&self, task: Notified) {

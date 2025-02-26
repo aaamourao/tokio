@@ -3,8 +3,8 @@ use crate::loom::cell::UnsafeCell;
 use crate::loom::sync::{Arc, Mutex};
 #[cfg(tokio_unstable)]
 use crate::runtime;
-use crate::runtime::task::{self, JoinHandle, LocalOwnedTasks, Task, TaskHarnessScheduleHooks};
-use crate::runtime::{context, ThreadId, BOX_FUTURE_THRESHOLD};
+use crate::runtime::task::{self, JoinHandle, LocalOwnedTasks, Task};
+use crate::runtime::{context, TaskHookHarness, ThreadId, BOX_FUTURE_THRESHOLD};
 use crate::sync::AtomicWaker;
 use crate::util::trace::SpawnMeta;
 use crate::util::RcCell;
@@ -1117,11 +1117,9 @@ impl task::Schedule for Arc<Shared> {
         Shared::schedule(self, task);
     }
 
-    // localset does not currently support task hooks
-    fn hooks(&self) -> TaskHarnessScheduleHooks {
-        TaskHarnessScheduleHooks {
-            task_terminate_callback: None,
-        }
+    // localset does not support task hooks
+    fn hooks(&self) -> Option<&Arc<dyn TaskHookHarness + Send + Sync + 'static>> {
+        None
     }
 
     cfg_unstable! {

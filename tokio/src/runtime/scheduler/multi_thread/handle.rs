@@ -1,13 +1,10 @@
 use crate::future::Future;
 use crate::loom::sync::Arc;
 use crate::runtime::scheduler::multi_thread::worker;
-use crate::runtime::{
-    blocking, driver,
-    task::{self, JoinHandle},
-    TaskHookHarness,
-};
+use crate::runtime::{blocking, driver, task::{self, JoinHandle}, OnChildTaskSpawnContext, OnTopLevelTaskSpawnContext, TaskHookHarness, TaskHookHarnessFactory};
 use crate::util::RngSeedGenerator;
 
+use crate::runtime::task::Schedule;
 use std::fmt;
 
 mod metrics;
@@ -31,34 +28,58 @@ pub(crate) struct Handle {
     pub(crate) seed_generator: RngSeedGenerator,
 
     /// User-supplied hooks to invoke for things
-    pub(crate) task_hooks: TaskHookHarness,
+    #[cfg(tokio_unstable)]
+    pub(crate) task_hooks: Option<Arc<dyn TaskHookHarnessFactory + Send + Sync + 'static>>,
 }
 
 impl Handle {
     /// Spawns a future onto the thread pool
-    pub(crate) fn spawn<F>(me: &Arc<Self>, future: F, id: task::Id) -> JoinHandle<F::Output>
+    pub(crate) fn spawn<F>(
+        me: &Arc<Self>,
+        future: F,
+        id: task::Id,
+        parent: Option<&(dyn TaskHookHarnessFactory + Send + Sync + 'static)>,
+    ) -> JoinHandle<F::Output>
     where
         F: crate::future::Future + Send + 'static,
         F::Output: Send + 'static,
     {
-        Self::bind_new_task(me, future, id)
+        Self::bind_new_task(me, future, id, parent)
     }
 
     pub(crate) fn shutdown(&self) {
         self.close();
     }
 
-    pub(super) fn bind_new_task<T>(me: &Arc<Self>, future: T, id: task::Id) -> JoinHandle<T::Output>
+    pub(super) fn bind_new_task<T>(
+        me: &Arc<Self>,
+        future: T,
+        id: task::Id,
+        parent: Option<&mut (dyn TaskHookHarness + Send + Sync + 'static)>,
+    ) -> JoinHandle<T::Output>
     where
         T: Future + Send + 'static,
         T::Output: Send + 'static,
     {
-        let (handle, notified) = me.shared.owned.bind(future, me.clone(), id);
+        let hooks = if let Some(parent) = parent {
+            parent.on_child_spawn(&mut OnChildTaskSpawnContext {
+                id,
+                _phantom: Default::default(),
+            })
+        } else {
+            if let Some(hooks) = me.hooks() {
+                hooks.on_top_level_spawn(&mut OnTopLevelTaskSpawnContext {
+                    id,
+                    _phantom: Default::default()
+                })
+            } else {
+                None
+            }
+        };
 
-        me.task_hooks.dispatch_task_spawn_callback(&TaskContext {
-            id,
-            _phantom: Default::default(),
-        });
+
+        
+        let (handle, notified) = me.shared.owned.bind(future, me.clone(), id);
 
         me.schedule_option_task_without_yield(notified);
 

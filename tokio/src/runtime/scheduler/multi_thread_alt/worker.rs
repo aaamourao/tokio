@@ -63,7 +63,7 @@ use crate::runtime::scheduler::multi_thread_alt::{
     idle, queue, stats, Counters, Handle, Idle, Overflow, Stats, TraceStatus,
 };
 use crate::runtime::scheduler::{self, inject, Lock};
-use crate::runtime::task::{OwnedTasks, TaskHarnessScheduleHooks};
+use crate::runtime::task::{OwnedTasks};
 use crate::runtime::{blocking, coop, driver, task, Config, SchedulerMetrics, WorkerMetrics};
 use crate::runtime::{context, TaskHookHarness};
 use crate::util::atomic_cell::AtomicCell;

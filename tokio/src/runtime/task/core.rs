@@ -14,7 +14,7 @@ use crate::loom::cell::UnsafeCell;
 use crate::runtime::context;
 use crate::runtime::task::raw::{self, Vtable};
 use crate::runtime::task::state::State;
-use crate::runtime::task::{Id, Schedule, TaskHarnessScheduleHooks};
+use crate::runtime::task::{Id, Schedule};
 use crate::util::linked_list;
 
 use std::num::NonZeroU64;

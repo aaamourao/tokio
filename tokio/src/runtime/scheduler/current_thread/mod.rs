@@ -2,11 +2,10 @@ use crate::loom::sync::atomic::AtomicBool;
 use crate::loom::sync::Arc;
 use crate::runtime::driver::{self, Driver};
 use crate::runtime::scheduler::{self, Defer, Inject};
-use crate::runtime::task::{
-    self, JoinHandle, OwnedTasks, Schedule, Task, TaskHarnessScheduleHooks,
-};
+use crate::runtime::task::{self, JoinHandle, OwnedTasks, Schedule, Task};
 use crate::runtime::{
-    blocking, context, Config, MetricsBatch, SchedulerMetrics, TaskHookHarness, WorkerMetrics,
+    blocking, context, Config, MetricsBatch, SchedulerMetrics, TaskHookHarnessFactory,
+    WorkerMetrics,
 };
 use crate::sync::notify::Notify;
 use crate::util::atomic_cell::AtomicCell;
@@ -47,7 +46,7 @@ pub(crate) struct Handle {
     pub(crate) seed_generator: RngSeedGenerator,
 
     /// User-supplied hooks to invoke for things
-    pub(crate) task_hooks: TaskHookHarness,
+    pub(crate) task_hooks: Option<Arc<dyn TaskHookHarnessFactory + Send + Sync + 'static>>,
 
     /// If this is a `LocalRuntime`, flags the owning thread ID.
     pub(crate) local_tid: Option<ThreadId>,
@@ -142,14 +141,7 @@ impl CurrentThread {
             .unwrap_or(DEFAULT_GLOBAL_QUEUE_INTERVAL);
 
         let handle = Arc::new(Handle {
-            task_hooks: TaskHookHarness {
-                task_spawn_callback: config.before_spawn.clone(),
-                task_terminate_callback: config.after_termination.clone(),
-                #[cfg(tokio_unstable)]
-                before_poll_callback: config.before_poll.clone(),
-                #[cfg(tokio_unstable)]
-                after_poll_callback: config.after_poll.clone(),
-            },
+            task_hooks: config.task_hook_factory.clone(),
             shared: Shared {
                 inject: Inject::new(),
                 owned: OwnedTasks::new(1),

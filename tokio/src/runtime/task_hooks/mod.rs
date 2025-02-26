@@ -28,7 +28,7 @@ pub trait TaskHookHarness {
     fn on_child_spawn(
         &mut self,
         ctx: &mut OnChildTaskSpawnContext<'_>,
-    ) -> Option<Box<dyn TaskHookHarness>>;
+    ) -> Option<Box<dyn TaskHookHarness + Send + Sync + 'static>>;
 
     /// Task hook which runs on task termination.
     fn on_task_terminate(&mut self, ctx: &mut OnTaskTerminateContext<'_>);
@@ -37,16 +37,11 @@ pub trait TaskHookHarness {
 #[allow(missing_debug_implementations)]
 #[cfg_attr(not(tokio_unstable), allow(unreachable_pub))]
 pub struct OnTopLevelTaskSpawnContext<'a> {
-    name: Option<&'a str>,
-    id: task::Id,
+    pub(crate) id: task::Id,
+    pub(crate) _phantom: PhantomData<&'a ()>,
 }
 
 impl<'a> OnTopLevelTaskSpawnContext<'a> {
-    /// Returns the name of the task, if one was provided via a builder.
-    pub fn name(&self) -> Option<&str> {
-        self.name
-    }
-
     /// Returns the ID of the task.
     pub fn id(&self) -> task::Id {
         self.id
@@ -56,16 +51,11 @@ impl<'a> OnTopLevelTaskSpawnContext<'a> {
 #[allow(missing_debug_implementations)]
 #[cfg_attr(not(tokio_unstable), allow(unreachable_pub))]
 pub struct OnChildTaskSpawnContext<'a> {
-    name: Option<&'a str>,
-    id: task::Id,
+    pub(crate) id: task::Id,
+    pub(crate) _phantom: PhantomData<&'a ()>,
 }
 
 impl<'a> OnChildTaskSpawnContext<'a> {
-    /// Returns the name of the task, if one was provided via a builder.
-    pub fn name(&self) -> Option<&str> {
-        self.name
-    }
-
     /// Returns the ID of the task.
     pub fn id(&self) -> task::Id {
         self.id
@@ -75,17 +65,17 @@ impl<'a> OnChildTaskSpawnContext<'a> {
 #[allow(missing_debug_implementations)]
 #[cfg_attr(not(tokio_unstable), allow(unreachable_pub))]
 pub struct OnTaskTerminateContext<'a> {
-    _phantom: PhantomData<&'a ()>,
+    pub(crate) _phantom: PhantomData<&'a ()>,
 }
 
 #[allow(missing_debug_implementations)]
 #[cfg_attr(not(tokio_unstable), allow(unreachable_pub))]
 pub struct BeforeTaskPollContext<'a> {
-    _phantom: PhantomData<&'a ()>,
+    pub(crate) _phantom: PhantomData<&'a ()>,
 }
 
 #[allow(missing_debug_implementations)]
 #[cfg_attr(not(tokio_unstable), allow(unreachable_pub))]
 pub struct AfterTaskPollContext<'a> {
-    _phantom: PhantomData<&'a ()>,
+    pub(crate) _phantom: PhantomData<&'a ()>,
 }

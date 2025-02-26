@@ -4,6 +4,7 @@ use crate::runtime::task::state::{Snapshot, State};
 use crate::runtime::task::waker::waker_ref;
 use crate::runtime::task::{Id, JoinError, Notified, RawTask, Schedule, Task};
 
+use crate::runtime::OnTaskTerminateContext;
 use std::any::Any;
 use std::mem;
 use std::mem::ManuallyDrop;
@@ -368,8 +369,7 @@ where
         // completed and will still run if the destructor panics.
         if let Some(f) = self.trailer().hooks.task_terminate_callback.as_ref() {
             let _ = panic::catch_unwind(panic::AssertUnwindSafe(|| {
-                f(&TaskContext {
-                    id: self.core().task_id,
+                f(&OnTaskTerminateContext {
                     _phantom: Default::default(),
                 })
             }));

@@ -1,11 +1,7 @@
 use crate::future::Future;
 use crate::loom::sync::Arc;
 use crate::runtime::scheduler::multi_thread_alt::worker;
-use crate::runtime::{
-    blocking, driver,
-    task::{self, JoinHandle},
-    TaskHookHarness,
-};
+use crate::runtime::{blocking, driver, task::{self, JoinHandle}, TaskHookHarness, TaskHookHarnessFactory};
 use crate::util::RngSeedGenerator;
 
 use std::fmt;
@@ -29,7 +25,7 @@ pub(crate) struct Handle {
     pub(crate) seed_generator: RngSeedGenerator,
 
     /// User-supplied hooks to invoke for things
-    pub(crate) task_hooks: TaskHookHarness,
+    pub(crate) task_hooks: Option<Arc<dyn TaskHookHarnessFactory + Send + Sync + 'static>>,
 }
 
 impl Handle {

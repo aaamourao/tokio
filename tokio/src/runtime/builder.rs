@@ -1319,7 +1319,7 @@ impl Builder {
             Config {
                 before_park: self.before_park.clone(),
                 after_unpark: self.after_unpark.clone(),
-                before_spawn: self.before_spawn.clone(),
+                task_hook_factory: self.before_spawn.clone(),
                 #[cfg(tokio_unstable)]
                 before_poll: self.before_poll.clone(),
                 #[cfg(tokio_unstable)]
@@ -1473,7 +1473,7 @@ cfg_rt_multi_thread! {
                 Config {
                     before_park: self.before_park.clone(),
                     after_unpark: self.after_unpark.clone(),
-                    before_spawn: self.before_spawn.clone(),
+                    task_hook_factory: self.before_spawn.clone(),
                     #[cfg(tokio_unstable)]
                     before_poll: self.before_poll.clone(),
                     #[cfg(tokio_unstable)]
@@ -1526,7 +1526,7 @@ cfg_rt_multi_thread! {
                     Config {
                         before_park: self.before_park.clone(),
                         after_unpark: self.after_unpark.clone(),
-                        before_spawn: self.before_spawn.clone(),
+                        task_hook_factory: self.before_spawn.clone(),
                         after_termination: self.after_termination.clone(),
                         #[cfg(tokio_unstable)]
                         before_poll: self.before_poll.clone(),
